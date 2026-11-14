@@ -1,4 +1,4 @@
-namespace CallCenter
+namespace CallCenter.Domain.Entities
 {
     public class WeatherForecast
     {
