@@ -114,7 +114,7 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         using var request = CreateRequest("realtime/client_secrets");
         var model = RealtimeTranscriptionModel;
         var transcription = model == "gpt-live-transcribe"
-            ? (object)new { model, languages = new[] { "fa" } }
+            ? (object)new { model }
             : new { model, language = "fa", prompt = PersianTranscriptionPrompt };
         request.Content = JsonContent.Create(new
         {
@@ -155,18 +155,18 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
     private static async Task<RealtimeSessionException> GetRealtimeSessionErrorAsync(
         HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        string? code = null;
+        OpenAiError? error = null;
         try
         {
             var envelope = await response.Content.ReadFromJsonAsync<OpenAiErrorEnvelope>(cancellationToken);
-            code = envelope?.Error?.Code;
+            error = envelope?.Error;
         }
         catch (JsonException)
         {
             // A proxy can return HTML instead of an OpenAI error object.
         }
 
-        var explanation = (response.StatusCode, code) switch
+        var explanation = (response.StatusCode, error?.Code) switch
         {
             (_, "insufficient_quota") => "اعتبار یا سهمیهٔ API کافی نیست.",
             (_, "model_not_found" or "model_not_available" or "unsupported_model") =>
@@ -181,6 +181,13 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         };
 
         var status = (int)response.StatusCode;
+        var parameter = error?.Param;
+        if (parameter is { Length: > 0 and <= 120 }
+            && parameter.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '[' or ']'))
+        {
+            return new RealtimeSessionException($"{explanation} (OpenAI HTTP {status}, {parameter})");
+        }
+
         return new RealtimeSessionException($"{explanation} (OpenAI HTTP {status})");
     }
 
@@ -195,7 +202,7 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
     }
 
     private sealed record OpenAiErrorEnvelope(OpenAiError? Error);
-    private sealed record OpenAiError(string? Code);
+    private sealed record OpenAiError(string? Code, string? Param);
     private sealed record TranscriptionResponse(string Text);
     private sealed record CityRecognitionResponse(CityRecognitionChoice[] Choices);
     private sealed record CityRecognitionChoice(CityRecognitionMessage Message);
