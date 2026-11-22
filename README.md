@@ -1,32 +1,39 @@
 # Ai1669
 
-ASP.NET Core 8 API. The folder layout follows `shetabKhadamat/PwaApi1669`: Clean Architecture layers within one web project.
+سرویس CallCenter یک API در ASP.NET Core 8 است. فایل صوتی فارسی را به OpenAI می‌فرستد، نام شهر را در متن با فهرست شهرها تطبیق می‌دهد و پاسخ فارسی را با صدای زن به‌صورت MP3 برمی‌گرداند.
 
-```text
-CallCenter/
-  Controllers/                         HTTP endpoints
-  Application/
-    Abstractions/                      Repository and external-service contracts
-    Common/                            Shared response contracts
-    Features/<Feature>/                Services, service interfaces and DTOs
-  Domain/Entities/                      Domain models
-  Infrastructure/Persistence/
-    SqlConnectionFactory.cs            SQL Server connection creation
-    Repositories/                      ADO.NET SQL and stored procedure implementations
-  Middlewares/                         Central exception handling
-  Database/                            Database scripts and documentation
-```
+## نصب و اجرا
 
-Controllers call Application services; services depend on repository interfaces in Application; Infrastructure implements those interfaces. Domain contains no infrastructure dependencies. This matches the reference's folder-based separation, rather than separate class-library projects.
+.NET 8 SDK و Visual Studio 2022 نسخهٔ 17.8 یا جدیدتر را نصب کنید. برای اجرای HTTPS محلی در ویندوز، به گواهی توسعه اعتماد کنید:
 
-```sh
+```powershell
+dotnet dev-certs https --trust
 dotnet restore Ai1669.sln
 dotnet build Ai1669.sln --no-restore
-dotnet run --project CallCenter --launch-profile http
+dotnet user-secrets set "OpenAI:ApiKey" "<your OpenAI API key>" --project src/CallCenter
+dotnet run --project src/CallCenter
 ```
 
-For database features set `ConnectionStrings__MainConnection` securely in the process environment. See `CallCenter/Database/README.md` for the direct SQL and stored procedure conventions. No database credentials, database-specific business endpoints, JWT settings, or SMS configuration are copied from the reference project.
+در Visual Studio، فایل `Ai1669.sln` را باز کنید و پروژهٔ CallCenter را اجرا کنید. Swagger در محیط Development در `https://localhost:7209/swagger` باز می‌شود. در محیط اجرا می‌توانید کلید را از طریق متغیر `OpenAI__ApiKey` و سامانهٔ مدیریت اسرار تزریق کنید. در صورت نیاز، از `appsettings.Development.json.example` برای تنظیم مدل و صدا استفاده کنید.
 
-## Voice coverage
+## API
 
-`POST /api/voice-coverage` accepts multipart audio and returns city matches and coverage JSON. Transcription runs locally using faster-whisper large-v3 on CPU with int8. See the [Windows installation and startup guide](SpeechService/README.md) and the [database and Swagger guide](CallCenter/Database/VoiceCoverage.md) and run [001_ServiceCities.sql](CallCenter/Database/001_ServiceCities.sql) before using the database feature.
+`POST /api/voice-coverage` یک فیلد `audio` از نوع `multipart/form-data` دریافت می‌کند. فایل‌های WAV، MP3، MPGA، MPEG، M4A، MP4، WEBM، FLAC و OGG تا سقف ۲۴ MiB پذیرفته می‌شوند.
+
+```powershell
+curl.exe --fail -F "audio=@sample.wav" https://localhost:7209/api/voice-coverage --output reply.mp3
+```
+
+پاسخ موفق `audio/mpeg` است. هدر `X-Coverage-Status` یکی از مقادیر `Active`، `Inactive`، `UnknownCity`، `MultipleCities` و `NoSpeech` را نشان می‌دهد. هدر `X-Audio-Generated-By: AI` نشان می‌دهد که صدا مصنوعی است. رابط کاربر باید هنگام پخش این موضوع را به کاربر اطلاع دهد. خطاهای HTTP در قالب Problem Details گزارش می‌شوند.
+
+| شناسه | شهر | خدمات فعال |
+| --- | --- | --- |
+| 1 | بندرعباس | بله |
+| 2 | تهران | بله |
+| 3 | شیراز | خیر |
+
+تبدیل گفتار با `gpt-4o-mini-transcribe` و تولید صدا با `gpt-4o-mini-tts` و صدای `nova` انجام می‌شود. فایل ورودی و متن پاسخ برای پردازش به OpenAI ارسال می‌شوند.
+
+## ساختار
+
+تنها پروژهٔ Solution در `src/CallCenter` قرار دارد. Controller فایل را اعتبارسنجی می‌کند و عملیات را به Application می‌سپارد. Application از قراردادهای تبدیل گفتار، تولید صدا و خواندن شهرها استفاده می‌کند. Infrastructure کلاینت OpenAI و مخزن درون‌حافظه‌ای را فراهم می‌کند. برای اتصال آتی به SQL Server، پیاده‌سازی `ICityRepository` را جایگزین و ثبت آن را در `Program.cs` تغییر دهید.

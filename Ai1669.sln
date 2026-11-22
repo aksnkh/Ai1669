@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35122.118
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CallCenter", "CallCenter\CallCenter.csproj", "{10F2F096-E7B8-4C1B-980F-297023E6A923}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CallCenter", "src\CallCenter\CallCenter.csproj", "{10F2F096-E7B8-4C1B-980F-297023E6A923}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
