@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -113,7 +114,7 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         using var request = CreateRequest("realtime/client_secrets");
         var model = RealtimeTranscriptionModel;
         var transcription = model == "gpt-live-transcribe"
-            ? (object)new { model, language = "fa", keywords = new[] { "پوشش خدمات", "نام شهر" } }
+            ? (object)new { model, languages = new[] { "fa" } }
             : new { model, language = "fa", prompt = PersianTranscriptionPrompt };
         request.Content = JsonContent.Create(new
         {
@@ -141,12 +142,46 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         });
 
         using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+            throw await GetRealtimeSessionErrorAsync(response, cancellationToken);
+
         var secret = await response.Content.ReadFromJsonAsync<RealtimeClientSecret>(cancellationToken);
         if (secret is null || string.IsNullOrWhiteSpace(secret.Value))
             throw new JsonException("Missing Realtime client secret.");
 
         return secret;
+    }
+
+    private static async Task<RealtimeSessionException> GetRealtimeSessionErrorAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        string? code = null;
+        try
+        {
+            var envelope = await response.Content.ReadFromJsonAsync<OpenAiErrorEnvelope>(cancellationToken);
+            code = envelope?.Error?.Code;
+        }
+        catch (JsonException)
+        {
+            // A proxy can return HTML instead of an OpenAI error object.
+        }
+
+        var explanation = (response.StatusCode, code) switch
+        {
+            (_, "insufficient_quota") => "اعتبار یا سهمیهٔ API کافی نیست.",
+            (_, "model_not_found" or "model_not_available" or "unsupported_model") =>
+                "این مدل برای پروژهٔ OpenAI شما در دسترس نیست یا برای این نوع جلسه پذیرفته نمی‌شود.",
+            (_, "unsupported_language") => "مدل انتخاب‌شده فارسی را با این تنظیمات نپذیرفت.",
+            (_, "unknown_parameter" or "invalid_value" or "invalid_type" or "missing_required_parameter") =>
+                "OpenAI یکی از تنظیمات جلسهٔ زنده را نپذیرفت.",
+            (HttpStatusCode.Unauthorized, _) => "کلید OpenAI برای ایجاد جلسه پذیرفته نشد.",
+            (HttpStatusCode.Forbidden, _) => "پروژهٔ OpenAI اجازهٔ ایجاد این جلسه را ندارد.",
+            (HttpStatusCode.TooManyRequests, _) => "محدودیت مصرف OpenAI اعمال شده است.",
+            _ => "OpenAI نتوانست جلسهٔ رونویسی زنده را ایجاد کند."
+        };
+
+        var status = (int)response.StatusCode;
+        return new RealtimeSessionException($"{explanation} (OpenAI HTTP {status})");
     }
 
     private HttpRequestMessage CreateRequest(string path)
@@ -159,6 +194,8 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         return request;
     }
 
+    private sealed record OpenAiErrorEnvelope(OpenAiError? Error);
+    private sealed record OpenAiError(string? Code);
     private sealed record TranscriptionResponse(string Text);
     private sealed record CityRecognitionResponse(CityRecognitionChoice[] Choices);
     private sealed record CityRecognitionChoice(CityRecognitionMessage Message);
@@ -167,3 +204,5 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
 }
 
 internal sealed class OpenAiConfigurationException : Exception;
+
+internal sealed class RealtimeSessionException(string message) : Exception(message);

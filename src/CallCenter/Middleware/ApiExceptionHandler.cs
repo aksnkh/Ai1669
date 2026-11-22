@@ -14,6 +14,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails) :
         {
             OpenAiConfigurationException => (503, "تنظیمات سرویس صوتی کامل نیست."),
             OperationCanceledException => (504, "زمان انتظار برای سرویس صوتی به پایان رسید."),
+            RealtimeSessionException realtime => (502, realtime.Message),
             HttpRequestException or JsonException => (502, "سرویس صوتی پاسخ معتبری ارائه نکرد."),
             _ => (500, "خطای داخلی سرور.")
         };
