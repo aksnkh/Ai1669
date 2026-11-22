@@ -17,6 +17,32 @@ const coverageLabels = {
 let current;
 let replyUrl;
 
+function setStart(label, disabled, ready = false) {
+    start.textContent = label;
+    start.disabled = disabled;
+    start.classList.toggle("ready", ready);
+}
+
+function enableSpeaking(session) {
+    if (current !== session || session.ready || !session.serverReady
+        || session.connection.connectionState !== "connected" || session.events.readyState !== "open") return;
+
+    session.ready = true;
+    clearTimeout(session.timer);
+    session.timer = setTimeout(() => finish(session, "زمان شروع صحبت به پایان رسید.", true), 60000);
+    setStart("حالا صحبت کنید", false, true);
+    status.textContent = "میکروفون آماده است. دکمه را بزنید و صحبت کنید.";
+}
+
+function beginListening(session) {
+    session.listening = true;
+    for (const track of session.stream.getAudioTracks()) track.enabled = true;
+    clearTimeout(session.timer);
+    session.timer = setTimeout(() => finish(session, "زمان شنیدن به پایان رسید. دوباره شروع کنید.", true), 60000);
+    setStart("در حال شنیدن…", true, true);
+    status.textContent = "در حال شنیدن نام شهر…";
+}
+
 function closeMicrophone(session) {
     clearTimeout(session.timer);
     session.connection?.close();
@@ -31,7 +57,7 @@ function finish(session, message, cancel = false) {
     if (cancel) session.abort.abort();
     closeMicrophone(session);
     status.textContent = message;
-    start.disabled = false;
+    setStart("آماده‌سازی میکروفون", false);
     stop.hidden = true;
 }
 
@@ -66,6 +92,7 @@ async function answer(session, text) {
     if (current !== session || session.responding) return;
     session.responding = true;
     closeMicrophone(session);
+    setStart("در حال آماده‌کردن پاسخ…", true);
 
     const finalText = text.trim();
     transcript.textContent = finalText;
@@ -99,9 +126,21 @@ async function answer(session, text) {
 function handleEvent(session, message) {
     if (current !== session || session.responding) return;
     const event = JSON.parse(message.data);
+    if (event.type === "session.created" || event.type === "transcription_session.created") {
+        session.serverReady = true;
+        enableSpeaking(session);
+        return;
+    }
+    if (event.type === "error") {
+        finish(session, "اتصال رونویسی زنده خطا داد. دوباره تلاش کنید.", true);
+        return;
+    }
+    if (!session.listening) return;
+
     switch (event.type) {
-        case "input_audio_buffer.speech_started":
-            status.textContent = "در حال شنیدن…";
+        case "input_audio_buffer.speech_stopped":
+            setStart("در حال تبدیل گفتار…", true);
+            status.textContent = "در حال تبدیل گفتار به متن…";
             break;
         case "conversation.item.input_audio_transcription.delta":
             session.partial += event.delta;
@@ -112,13 +151,17 @@ function handleEvent(session, message) {
             void answer(session, event.transcript ?? "");
             break;
         case "conversation.item.input_audio_transcription.failed":
-        case "error":
             finish(session, "تبدیل گفتار به متن انجام نشد. دوباره تلاش کنید.", true);
             break;
     }
 }
 
 start.addEventListener("click", async () => {
+    if (current) {
+        if (current.ready && !current.listening) beginListening(current);
+        return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
         status.textContent = "برای استفاده از میکروفون، صفحه را در مرورگر سازگار روی localhost یا HTTPS باز کنید.";
         return;
@@ -129,7 +172,7 @@ start.addEventListener("click", async () => {
     transcriptPanel.hidden = true;
     const session = { abort: new AbortController(), partial: "", responding: false };
     current = session;
-    start.disabled = true;
+    setStart("در حال آماده‌سازی…", true);
     stop.hidden = false;
     status.textContent = "در انتظار اجازهٔ میکروفون…";
 
@@ -143,24 +186,28 @@ start.addEventListener("click", async () => {
         }
         session.stream = stream;
         status.textContent = "در حال اتصال…";
-        session.timer = setTimeout(() => finish(session, "زمان شنیدن به پایان رسید. دوباره شروع کنید.", true), 60000);
+        session.timer = setTimeout(() => finish(session, "اتصال در زمان مقرر آماده نشد.", true), 30000);
 
         const connection = new RTCPeerConnection();
         session.connection = connection;
-        for (const track of stream.getAudioTracks()) connection.addTrack(track, stream);
+        for (const track of stream.getAudioTracks()) {
+            track.enabled = false;
+            connection.addTrack(track, stream);
+        }
 
         const events = connection.createDataChannel("oai-events");
-        events.addEventListener("open", () => {
-            if (current === session) status.textContent = "حالا صحبت کنید.";
-        });
+        session.events = events;
+        events.addEventListener("open", () => enableSpeaking(session));
         events.addEventListener("message", message => handleEvent(session, message));
         events.addEventListener("close", () => {
             if (!session.responding) finish(session, "اتصال گفت‌وگوی زنده بسته شد.", true);
         });
         connection.addEventListener("connectionstatechange", () => {
-            if (connection.connectionState === "failed") {
+            if (["failed", "disconnected"].includes(connection.connectionState)) {
                 finish(session, "اتصال گفت‌وگوی زنده برقرار نشد.", true);
+                return;
             }
+            enableSpeaking(session);
         });
 
         await connection.setLocalDescription(await connection.createOffer());

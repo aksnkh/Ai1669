@@ -109,6 +109,10 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
     public async Task<RealtimeClientSecret> CreateRealtimeSessionAsync(CancellationToken cancellationToken)
     {
         using var request = CreateRequest("realtime/client_secrets");
+        var model = options.RealtimeTranscriptionModel ?? options.TranscriptionModel;
+        var transcription = model == "gpt-live-transcribe"
+            ? (object)new { model, language = "fa", keywords = new[] { "پوشش خدمات", "نام شهر" } }
+            : new { model, language = "fa", prompt = PersianTranscriptionPrompt };
         request.Content = JsonContent.Create(new
         {
             expires_after = new { anchor = "created_at", seconds = 60 },
@@ -120,12 +124,7 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
                     input = new
                     {
                         format = new { type = "audio/pcm", rate = 24000 },
-                        transcription = new
-                        {
-                            model = options.TranscriptionModel,
-                            language = "fa",
-                            prompt = PersianTranscriptionPrompt
-                        },
+                        transcription,
                         noise_reduction = new { type = "near_field" },
                         turn_detection = new
                         {

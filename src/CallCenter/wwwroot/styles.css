@@ -49,6 +49,8 @@ button {
     cursor: pointer;
 }
 
+button.ready { background: #12683e; border-color: #12683e; }
+button.ready:disabled { opacity: 1; cursor: default; }
 button:disabled { opacity: .65; cursor: wait; }
 button:focus-visible, audio:focus-visible { outline: 3px solid #ae6422; outline-offset: 3px; }
 #stop { color: #174e48; background: transparent; }
