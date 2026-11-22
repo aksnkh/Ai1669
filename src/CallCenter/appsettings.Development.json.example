@@ -1,6 +1,7 @@
 {
   "OpenAI": {
     "TranscriptionModel": "gpt-4o-transcribe",
+    "CityRecognitionModel": "gpt-4.1-mini",
     "SpeechModel": "gpt-4o-mini-tts",
     "Voice": "nova"
   }

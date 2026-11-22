@@ -13,6 +13,16 @@ public sealed partial class PersianCityMatcher
         return cities.Where(city => ContainsCity(normalized, city.CityName)).ToArray();
     }
 
+    public IReadOnlyList<string> KeepMentionedNames(string transcript, IEnumerable<string> candidates)
+    {
+        var normalized = $" {Normalize(transcript)} ";
+        return candidates
+            .Select(Normalize)
+            .Where(name => name.Length is > 0 and <= 60 && normalized.Contains($" {name} ", StringComparison.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
     private static bool ContainsCity(string transcript, string cityName)
     {
         var name = Normalize(cityName);

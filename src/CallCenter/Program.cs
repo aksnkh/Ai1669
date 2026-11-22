@@ -34,6 +34,7 @@ builder.Services.AddHttpClient<OpenAiSpeechClient>((services, client) =>
     client.Timeout = TimeSpan.FromMinutes(2);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<ISpeechTranscriber>(services => services.GetRequiredService<OpenAiSpeechClient>());
+builder.Services.AddScoped<IIranianCityRecognizer>(services => services.GetRequiredService<OpenAiSpeechClient>());
 builder.Services.AddScoped<ISpeechSynthesizer>(services => services.GetRequiredService<OpenAiSpeechClient>());
 builder.Services.AddSingleton<ICityRepository, InMemoryCityRepository>();
 builder.Services.AddSingleton<PersianCityMatcher>();

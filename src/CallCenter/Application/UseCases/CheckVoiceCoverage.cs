@@ -1,7 +1,6 @@
 using CallCenter.Application.Abstractions;
 using CallCenter.Application.DTOs;
 using CallCenter.Application.Services;
-using CallCenter.Domain.Entities;
 using CallCenter.Domain.Enums;
 
 namespace CallCenter.Application.UseCases;
@@ -10,6 +9,7 @@ public sealed class CheckVoiceCoverage(
     ISpeechTranscriber transcriber,
     ICityRepository repository,
     PersianCityMatcher matcher,
+    IIranianCityRecognizer recognizer,
     ISpeechSynthesizer synthesizer)
 {
     public async Task<VoiceCoverageReply> ExecuteAsync(AudioUpload audio, CancellationToken cancellationToken)
@@ -21,21 +21,39 @@ public sealed class CheckVoiceCoverage(
     public async Task<VoiceCoverageReply> ExecuteTextAsync(string transcript, CancellationToken cancellationToken)
     {
         var (status, message) = string.IsNullOrWhiteSpace(transcript)
-            ? (CoverageStatus.NoSpeech, "صدای واضحی دریافت نشد. لطفاً نام شهر را دوباره بگویید.")
-            : GetReply(matcher.Find(transcript, await repository.GetCitiesAsync(cancellationToken)));
+            ? (CoverageStatus.NoSpeech, "صداتون رو واضح نشنیدم. می‌شه دوباره بگید؟")
+            : await GetReplyAsync(transcript, cancellationToken);
 
         return new VoiceCoverageReply(status, await synthesizer.SynthesizeAsync(message, cancellationToken));
     }
 
-    private static (CoverageStatus Status, string Message) GetReply(IReadOnlyList<ServiceCity> matches)
+    private async Task<(CoverageStatus Status, string Message)> GetReplyAsync(
+        string transcript, CancellationToken cancellationToken)
     {
-        return matches.Count switch
+        var cities = await repository.GetCitiesAsync(cancellationToken);
+        var matches = matcher.Find(transcript, cities);
+        if (matches.Count > 0)
         {
-            0 => (CoverageStatus.UnknownCity, "نام شهر را پیدا نکردم. لطفاً نام شهر را واضح‌تر بگویید."),
-            > 1 => (CoverageStatus.MultipleCities, "بیش از یک شهر پیدا شد. لطفاً فقط نام یک شهر را بگویید."),
-            _ when matches[0].IsActive =>
-                (CoverageStatus.Active, $"بله، ما در {matches[0].CityName} خدمات ارائه می‌دهیم."),
-            _ => (CoverageStatus.Inactive, $"در حال حاضر در {matches[0].CityName} خدمات ارائه نمی‌دهیم.")
+            return matches.Count == 1
+                ? CityReply(matches[0].CityName, matches[0].IsActive)
+                : MultipleCitiesReply();
+        }
+
+        var recognized = await recognizer.RecognizeAsync(transcript, cancellationToken);
+        var mentionedCities = matcher.KeepMentionedNames(transcript, recognized);
+        return mentionedCities.Count switch
+        {
+            0 => (CoverageStatus.UnknownCity, "اسم شهر رو متوجه نشدم. می‌شه دوباره بگید؟"),
+            1 => CityReply(mentionedCities[0], false),
+            _ => MultipleCitiesReply()
         };
     }
+
+    private static (CoverageStatus, string) CityReply(string name, bool isActive) =>
+        isActive
+            ? (CoverageStatus.Active, $"آره، توی {name} خدمات داریم.")
+            : (CoverageStatus.Inactive, $"نه، فعلاً توی {name} خدمات نداریم.");
+
+    private static (CoverageStatus, string) MultipleCitiesReply() =>
+        (CoverageStatus.MultipleCities, "چند تا شهر شنیدم. می‌شه فقط اسم یه شهر رو بگید؟");
 }
