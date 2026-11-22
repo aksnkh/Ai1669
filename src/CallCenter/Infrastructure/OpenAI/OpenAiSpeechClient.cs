@@ -106,10 +106,12 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         return recognition?.Cities ?? throw new JsonException("Missing recognized cities.");
     }
 
+    public string RealtimeTranscriptionModel => options.RealtimeTranscriptionModel ?? options.TranscriptionModel;
+
     public async Task<RealtimeClientSecret> CreateRealtimeSessionAsync(CancellationToken cancellationToken)
     {
         using var request = CreateRequest("realtime/client_secrets");
-        var model = options.RealtimeTranscriptionModel ?? options.TranscriptionModel;
+        var model = RealtimeTranscriptionModel;
         var transcription = model == "gpt-live-transcribe"
             ? (object)new { model, language = "fa", keywords = new[] { "پوشش خدمات", "نام شهر" } }
             : new { model, language = "fa", prompt = PersianTranscriptionPrompt };

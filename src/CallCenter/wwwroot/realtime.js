@@ -6,6 +6,24 @@ const transcript = document.querySelector("#transcript");
 const reply = document.querySelector("#reply");
 
 const api = "/api/voice-coverage";
+
+async function showRealtimeModel() {
+    try {
+        const response = await fetch(api + "/realtime/model");
+        if (!response.ok) return;
+
+        const { model } = await response.json();
+        if (!model) return;
+
+        const label = document.querySelector("#realtime-model");
+        label.querySelector("bdi").textContent = model;
+        label.hidden = false;
+    } catch {
+        // The microphone controls still work if the model label cannot be loaded.
+    }
+}
+
+void showRealtimeModel();
 const coverageLabels = {
     Active: "خدمات در این شهر فعال است.",
     Inactive: "خدمات در این شهر فعال نیست.",

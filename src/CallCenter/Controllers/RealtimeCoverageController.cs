@@ -23,6 +23,15 @@ public sealed class RealtimeCoverageController(
 {
     private bool Enabled => configuration.GetValue("Realtime:Enabled", environment.IsDevelopment());
 
+    [HttpGet("realtime/model")]
+    public IActionResult GetModel()
+    {
+        if (!Enabled)
+            return NotFound();
+
+        return Ok(new { model = speechClient.RealtimeTranscriptionModel });
+    }
+
     [HttpPost("realtime/session")]
     public async Task<ActionResult<RealtimeClientSecret>> CreateSession(
         [FromBody] RealtimeSessionRequest request, CancellationToken cancellationToken)

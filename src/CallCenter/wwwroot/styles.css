@@ -59,3 +59,6 @@ button:focus-visible, audio:focus-visible { outline: 3px solid #ae6422; outline-
 .transcript h2 { font-size: .9rem; margin: 0; color: #405853; }
 audio { width: 100%; margin-top: .85rem; }
 .note { margin-top: 1.5rem; color: #405853; font-size: .85rem; }
+
+.model { margin-block: .5rem 0; color: #405853; font-size: .8rem; }
+.model bdi { font-family: ui-monospace, monospace; }
