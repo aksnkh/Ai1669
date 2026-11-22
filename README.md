@@ -22,13 +22,11 @@ Controllers call Application services; services depend on repository interfaces 
 ```sh
 dotnet restore Ai1669.sln
 dotnet build Ai1669.sln --no-restore
-dotnet run --project CallCenter --no-launch-profile --urls http://127.0.0.1:5028
+dotnet run --project CallCenter --launch-profile http
 ```
-
-`GET /weatherforecast` retains the existing five-item JSON response and delegates forecast generation to its Application service. It does not require SQL Server. The shared Response<T> contract and exception middleware follow the reference; the existing successful endpoint response is unchanged.
 
 For database features set `ConnectionStrings__MainConnection` securely in the process environment. See `CallCenter/Database/README.md` for the direct SQL and stored procedure conventions. No database credentials, database-specific business endpoints, JWT settings, or SMS configuration are copied from the reference project.
 
 ## Voice coverage
 
-`POST /api/voice-coverage` accepts multipart audio and returns city matches and coverage JSON. See [setup and Swagger guide](CallCenter/Database/VoiceCoverage.md) and run [001_ServiceCities.sql](CallCenter/Database/001_ServiceCities.sql) before using the database feature.
+`POST /api/voice-coverage` accepts multipart audio and returns city matches and coverage JSON. Transcription runs locally using faster-whisper large-v3 on CPU with int8. See the [Windows installation and startup guide](SpeechService/README.md) and the [database and Swagger guide](CallCenter/Database/VoiceCoverage.md) and run [001_ServiceCities.sql](CallCenter/Database/001_ServiceCities.sql) before using the database feature.

@@ -1,6 +1,7 @@
 namespace CallCenter.Infrastructure.Speech;
+
 public sealed class SpeechOptions
 {
-    public string ApiKey { get; set; } = "";
-    public string Model { get; set; } = "whisper-1";
+    public Uri BaseUrl { get; set; } = new("http://127.0.0.1:8000/");
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMinutes(30);
 }

@@ -2,20 +2,23 @@ using CallCenter.Application.Abstractions;
 using CallCenter.Application.Features.VoiceCoverage;
 using CallCenter.Infrastructure.Persistence.Repositories;
 using CallCenter.Infrastructure.Speech;
-using CallCenter.Application.Features.WeatherForecast;
 using CallCenter.Infrastructure.Persistence;
 using CallCenter.Middlewares;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.Configure<SpeechOptions>(builder.Configuration.GetSection("Speech"));
-builder.Services.AddHttpClient<ISpeechTranscriber, OpenAiSpeechTranscriber>(client =>
-    client.Timeout = TimeSpan.FromSeconds(120));
+builder.Services.AddHttpClient<ISpeechTranscriber, LocalWhisperTranscriber>((services, client) =>
+{
+    var options = services.GetRequiredService<IOptions<SpeechOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.AbsoluteUri.TrimEnd('/') + "/");
+    client.Timeout = options.Timeout;
+});
 builder.Services.AddScoped<ICityRepository, CityRepository>();
 builder.Services.AddScoped<VoiceCoverageService>();
-builder.Services.AddScoped<IWeatherForecastService, WeatherForecastService>();
 builder.Services.AddSingleton<SqlConnectionFactory>(services =>
 {
     var configuration = services.GetRequiredService<IConfiguration>();
