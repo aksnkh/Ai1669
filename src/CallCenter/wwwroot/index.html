@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Ai1669 | پوشش خدمات</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/realtime.js"></script>
+</head>
+<body>
+<main>
+    <header><span class="brand" dir="ltr">Ai1669</span><span>مرکز تماس</span></header>
+    <section aria-labelledby="title">
+        <h1 id="title">در شهر شما خدمات داریم؟</h1>
+        <p>روی «شروع صحبت» بزنید و نام شهر را در یک جمله بگویید.</p>
+        <div class="actions">
+            <button id="start" type="button">شروع صحبت</button>
+            <button id="stop" type="button" hidden>لغو</button>
+        </div>
+        <p id="status" role="status">آمادهٔ شروع</p>
+        <div id="transcript-panel" class="transcript" hidden>
+            <h2>متن گفتار</h2>
+            <p id="transcript"></p>
+        </div>
+        <audio id="reply" controls hidden aria-label="پاسخ صوتی پوشش خدمات"></audio>
+        <p class="note">صدا برای تبدیل گفتار به متن به OpenAI ارسال می‌شود. صدای پاسخ با هوش مصنوعی تولید می‌شود.</p>
+    </section>
+</main>
+</body>
+</html>

@@ -51,6 +51,43 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         return audio;
     }
 
+    public async Task<RealtimeClientSecret> CreateRealtimeSessionAsync(CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest("realtime/client_secrets");
+        request.Content = JsonContent.Create(new
+        {
+            expires_after = new { anchor = "created_at", seconds = 60 },
+            session = new
+            {
+                type = "transcription",
+                audio = new
+                {
+                    input = new
+                    {
+                        format = new { type = "audio/pcm", rate = 24000 },
+                        transcription = new { model = options.TranscriptionModel, language = "fa" },
+                        noise_reduction = new { type = "near_field" },
+                        turn_detection = new
+                        {
+                            type = "server_vad",
+                            threshold = 0.5,
+                            prefix_padding_ms = 300,
+                            silence_duration_ms = 700
+                        }
+                    }
+                }
+            }
+        });
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        var secret = await response.Content.ReadFromJsonAsync<RealtimeClientSecret>(cancellationToken);
+        if (secret is null || string.IsNullOrWhiteSpace(secret.Value))
+            throw new JsonException("Missing Realtime client secret.");
+
+        return secret;
+    }
+
     private HttpRequestMessage CreateRequest(string path)
     {
         if (string.IsNullOrWhiteSpace(options.ApiKey))

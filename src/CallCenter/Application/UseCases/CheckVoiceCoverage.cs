@@ -15,6 +15,11 @@ public sealed class CheckVoiceCoverage(
     public async Task<VoiceCoverageReply> ExecuteAsync(AudioUpload audio, CancellationToken cancellationToken)
     {
         var transcript = await transcriber.TranscribeAsync(audio, cancellationToken);
+        return await ExecuteTextAsync(transcript, cancellationToken);
+    }
+
+    public async Task<VoiceCoverageReply> ExecuteTextAsync(string transcript, CancellationToken cancellationToken)
+    {
         var (status, message) = string.IsNullOrWhiteSpace(transcript)
             ? (CoverageStatus.NoSpeech, "صدای واضحی دریافت نشد. لطفاً نام شهر را دوباره بگویید.")
             : GetReply(matcher.Find(transcript, await repository.GetCitiesAsync(cancellationToken)));
