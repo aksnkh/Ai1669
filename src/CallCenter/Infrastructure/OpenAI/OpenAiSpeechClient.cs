@@ -10,6 +10,9 @@ namespace CallCenter.Infrastructure.OpenAI;
 public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions> settings)
     : ISpeechTranscriber, ISpeechSynthesizer
 {
+    private const string PersianTranscriptionPrompt =
+        "گفت‌وگوی تلفنی کوتاه به فارسی ایران دربارهٔ پوشش خدمات در شهرها. نام شهر را همان‌طور که گفته می‌شود بنویس.";
+
     private readonly OpenAiOptions options = settings.Value;
 
     public async Task<string> TranscribeAsync(AudioUpload audio, CancellationToken cancellationToken)
@@ -21,6 +24,7 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
         form.Add(file, "file", audio.FileName);
         form.Add(new StringContent(options.TranscriptionModel), "model");
         form.Add(new StringContent("fa"), "language");
+        form.Add(new StringContent(PersianTranscriptionPrompt), "prompt");
         form.Add(new StringContent("json"), "response_format");
         request.Content = form;
 
@@ -65,14 +69,19 @@ public sealed class OpenAiSpeechClient(HttpClient client, IOptions<OpenAiOptions
                     input = new
                     {
                         format = new { type = "audio/pcm", rate = 24000 },
-                        transcription = new { model = options.TranscriptionModel, language = "fa" },
+                        transcription = new
+                        {
+                            model = options.TranscriptionModel,
+                            language = "fa",
+                            prompt = PersianTranscriptionPrompt
+                        },
                         noise_reduction = new { type = "near_field" },
                         turn_detection = new
                         {
                             type = "server_vad",
                             threshold = 0.5,
-                            prefix_padding_ms = 300,
-                            silence_duration_ms = 700
+                            prefix_padding_ms = 500,
+                            silence_duration_ms = 1200
                         }
                     }
                 }
